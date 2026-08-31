@@ -1,6 +1,8 @@
 {
   "name": "brain",
   "main": "src/index.ts",
+  "workers_dev": false,
+  "routes": [{ "pattern": "brain.heyitsmejosh.com", "custom_domain": true }],
   "compatibility_date": "2026-08-31",
   "ai": { "binding": "AI" },
   "vectorize": [{ "binding": "VEC", "index_name": "brain" }]

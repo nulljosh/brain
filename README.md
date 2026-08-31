@@ -10,7 +10,7 @@ RAG over my own notes. Cloudflare Worker + Vectorize + Workers AI. No model trai
 ```bash
 source .env.local
 node ingest.mjs                     # re-index after notes change
-curl -s -X POST https://brain.trommatic.workers.dev/ask \
+curl -s -X POST https://brain.heyitsmejosh.com/ask \
   -H "authorization: Bearer $BRAIN_TOKEN" -H 'content-type: application/json' \
   -d '{"question":"what is blocked on me?"}'
 ```
