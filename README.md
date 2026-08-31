@@ -21,7 +21,9 @@ Live: **https://brain.heyitsmejosh.com** (bearer-gated, every route — these ar
 
 ## Use
 ```bash
-source .env.local
+# set -a, not plain source: ingest.mjs reads BRAIN_TOKEN from the environment, and a
+# bare `source` leaves it unexported, so node gets nothing and every batch 401s.
+set -a && source .env.local && set +a
 node ingest.mjs                                    # re-index after notes change
 curl -s -H "authorization: Bearer $BRAIN_TOKEN" \
   "https://brain.heyitsmejosh.com/api/search?q=what+is+blocked+on+me"
