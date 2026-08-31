@@ -3,6 +3,7 @@
 
 import { callTool, ingest, ToolError, TOOL_NAMES, type Chunk, type Env } from "./tools";
 import { CORS, mcp } from "./mcp";
+import { PAGE } from "./page";
 
 const ENDPOINTS = {
   "GET  /api/search?q=&limit=": "Matching passages from the notes, verbatim, with sources.",
@@ -31,6 +32,11 @@ export default {
 async function handle(req: Request, env: Env): Promise<Response> {
   const url = new URL(req.url);
   const path = url.pathname.replace(/\/+$/, "") || "/";
+
+  // The page itself is public; it holds no note content and asks the browser for the token.
+  if (path === "/" && req.method === "GET" && (req.headers.get("accept") ?? "").includes("text/html")) {
+    return new Response(PAGE, { headers: { "content-type": "text/html; charset=utf-8" } });
+  }
 
   // These are Joshua's private notes, so every surface is gated — including the discovery
   // route, which would otherwise advertise the index to anyone who found the subdomain.
