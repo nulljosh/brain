@@ -1,4 +1,5 @@
 {
+  "observability": { "enabled": true },
   "name": "brain",
   "main": "src/index.ts",
   "workers_dev": false,
