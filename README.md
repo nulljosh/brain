@@ -39,3 +39,7 @@ curl -s -H "authorization: Bearer $BRAIN_TOKEN" \
 claude mcp add --transport http brain https://brain.heyitsmejosh.com/mcp \
   --header "authorization: Bearer $BRAIN_TOKEN"
 ```
+
+## Architecture
+
+<img src="architecture.svg" width="600">
