@@ -47,8 +47,8 @@ function collect() {
   for (const root of ROOTS) {
     try {
       for (const f of walk(root)) {
-        // from ~/Documents/Code take only roadmaps + CLAUDE.md; the wiki root takes everything
-        if (root === CODE && !/\/(roadmap|CLAUDE|README)\.md$/i.test(f)) continue;
+        // from ~/Documents/Code take only these standard docs; the wiki root takes everything
+        if (root === CODE && !/\/(roadmap|CLAUDE|README|WHITEPAPER|FAQ|TROUBLESHOOTING)\.md$/i.test(f)) continue;
         files.push(f);
       }
     } catch {}
