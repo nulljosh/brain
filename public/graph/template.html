@@ -1,0 +1,144 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Memory Graph</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..500&display=swap" rel="stylesheet">
+<style>
+/* palette from heyitsmejosh.com tokens-sage.css, see design-tokens.css */
+:root{
+  --bg:#fdfdfc; --panel:#ffffff; --line:#ededed; --text:#111; --dim:rgba(0,0,0,.4);
+  --project:#5d7d5d; --feedback:#9a7a3f; --user:#4f6f8b; --reference:#96605f;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#111; --panel:#1a1a1a; --line:#2a2a2a; --text:#ededed; --dim:rgba(255,255,255,.45);
+  --project:#8fa98f; --feedback:#c2a06b; --user:#7d97ad; --reference:#b08585;
+}}
+:root[data-theme="light"]{
+  --bg:#fdfdfc; --panel:#ffffff; --line:#ededed; --text:#111; --dim:rgba(0,0,0,.4);
+  --project:#5d7d5d; --feedback:#9a7a3f; --user:#4f6f8b; --reference:#96605f;
+}
+:root[data-theme="dark"]{
+  --bg:#111; --panel:#1a1a1a; --line:#2a2a2a; --text:#ededed; --dim:rgba(255,255,255,.45);
+  --project:#8fa98f; --feedback:#c2a06b; --user:#7d97ad; --reference:#b08585;
+}
+html,body{height:100%;margin:0;overflow:hidden}
+body{background:var(--bg);color:var(--text);font:460 13px/1.7 'Inter',-apple-system,system-ui,sans-serif;letter-spacing:-.006em}
+#c{position:fixed;inset:0;cursor:grab}
+#c.drag{cursor:grabbing}
+header{position:fixed;top:0;left:0;right:0;display:flex;align-items:baseline;gap:16px;
+  padding:14px 18px;pointer-events:none}
+h1{font-size:13px;font-weight:600;margin:0;letter-spacing:.08em;text-transform:uppercase}
+#count{color:var(--dim)}
+#legend{position:fixed;bottom:14px;left:18px;display:flex;gap:14px;flex-wrap:wrap;pointer-events:none}
+.key{display:flex;align-items:center;gap:6px;color:var(--dim);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.key i{width:8px;height:8px;border-radius:50%;display:inline-block}
+#card{position:fixed;max-width:300px;background:var(--panel);border:1px solid var(--line);
+  padding:10px 12px;pointer-events:none;opacity:0;transition:opacity .12s}
+#card b{display:block;font-size:12px;margin-bottom:4px}
+#card p{margin:0;color:var(--dim);font-family:-apple-system,system-ui,sans-serif;font-size:12px}
+@media (prefers-reduced-motion: reduce){ /* handled in JS via matchMedia */ }
+</style>
+<canvas id="c"></canvas>
+<header><h1>Memory Graph</h1><span id="count"></span></header>
+<div id="legend">
+  <span class="key"><i style="background:var(--project)"></i>project</span>
+  <span class="key"><i style="background:var(--feedback)"></i>feedback</span>
+  <span class="key"><i style="background:var(--user)"></i>user</span>
+  <span class="key"><i style="background:var(--reference)"></i>reference</span>
+</div>
+<div id="card"><b></b><p></p></div>
+<script>
+ const DATA = __DATA__;
+const cvs=document.getElementById('c'),ctx=cvs.getContext('2d');
+const card=document.getElementById('card');
+let W,H,DPR=Math.min(devicePixelRatio||1,2);
+function size(){W=innerWidth;H=innerHeight;cvs.width=W*DPR;cvs.height=H*DPR;cvs.style.width=W+'px';cvs.style.height=H+'px';ctx.setTransform(DPR,0,0,DPR,0,0)}
+size();addEventListener('resize',size);
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const byId={};DATA.forEach(n=>byId[n.id]=n);
+// resolve links loosely: exact id or underscore/hyphen-normalized
+const norm=s=>s.toLowerCase().replace(/-/g,'_');
+const byNorm={};DATA.forEach(n=>byNorm[norm(n.id)]=n);
+const edges=[];
+DATA.forEach(n=>n.links.forEach(l=>{const t=byNorm[norm(l)];if(t&&t!==n)edges.push([n,t]);}));
+const deg={};edges.forEach(([a,b])=>{deg[a.id]=(deg[a.id]||0)+1;deg[b.id]=(deg[b.id]||0)+1;});
+document.getElementById('count').textContent=DATA.length+' memories · '+edges.length+' links';
+
+const css=k=>getComputedStyle(document.documentElement).getPropertyValue('--'+k).trim();
+// init: everything at center, bloom outward
+DATA.forEach((n,i)=>{const a=i/DATA.length*Math.PI*2;
+  n.x=W/2+Math.cos(a)*8;n.y=H/2+Math.sin(a)*8;n.vx=0;n.vy=0;
+  n.r=4+Math.min(6,(deg[n.id]||0)*1.6);
+  n.born=reduced?0:i*18; // staggered fade-in ms
+});
+let start=performance.now(),dragN=null,hoverN=null,px=0,py=0,panX=0,panY=0,panning=false,zoom=1;
+cvs.addEventListener('wheel',e=>{e.preventDefault();
+  const f=Math.exp(-e.deltaY*.0015),z=Math.min(4,Math.max(.25,zoom*f)),k=z/zoom;
+  panX=e.clientX-(e.clientX-panX)*k;panY=e.clientY-(e.clientY-panY)*k;zoom=z;
+},{passive:false});
+
+function tick(){
+  // forces: repulsion, spring on edges, mild centering
+  for(let i=0;i<DATA.length;i++)for(let j=i+1;j<DATA.length;j++){
+    const a=DATA[i],b=DATA[j];let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy+.01,d=Math.sqrt(d2);
+    const f=Math.min(1200/d2,4);dx/=d;dy/=d;
+    a.vx+=dx*f;a.vy+=dy*f;b.vx-=dx*f;b.vy-=dy*f;
+  }
+  edges.forEach(([a,b])=>{let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1;
+    const f=(d-90)*.004;dx/=d;dy/=d;
+    a.vx+=dx*f*30;a.vy+=dy*f*30;b.vx-=dx*f*30;b.vy-=dy*f*30;});
+  DATA.forEach(n=>{
+    n.vx+=(W/2-n.x)*.0012;n.vy+=(H/2-n.y)*.0012;
+    n.vx*=.86;n.vy*=.86;
+    if(n!==dragN){n.x+=n.vx;n.y+=n.vy;}
+  });
+}
+function draw(now){
+  const t=now-start;
+  ctx.clearRect(0,0,W,H);
+  ctx.save();ctx.translate(panX,panY);ctx.scale(zoom,zoom);
+  ctx.strokeStyle=css('line');ctx.lineWidth=1;
+  edges.forEach(([a,b])=>{
+    const al=reduced?1:Math.min(1,Math.max(0,(t-400)/600));
+    if(al<=0)return;ctx.globalAlpha=al*(hoverN&&(a===hoverN||b===hoverN)?1:.55);
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+  });
+  DATA.forEach(n=>{
+    const al=reduced?1:Math.min(1,Math.max(0,(t-n.born)/350));
+    if(al<=0)return;
+    const pop=reduced?1:1+.6*Math.max(0,1-(t-n.born)/350); // slight overshoot shrink
+    ctx.globalAlpha=al;
+    ctx.fillStyle=css(n.type);
+    ctx.beginPath();ctx.arc(n.x,n.y,n.r*pop,0,7);ctx.fill();
+    if(n===hoverN){ctx.strokeStyle=css('text');ctx.lineWidth=1.5;ctx.stroke();}
+    if(n.r>6||n===hoverN){
+      ctx.fillStyle=css(n===hoverN?'text':'dim');ctx.font='10px ui-monospace,Menlo,monospace';
+      ctx.textAlign='center';ctx.fillText(n.id.replace(/^(project|feedback|user|reference)[_-]/,''),n.x,n.y-n.r-6);
+    }
+  });
+  ctx.restore();ctx.globalAlpha=1;
+}
+function loop(now){tick();draw(now);requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+
+function pick(x,y){x=(x-panX)/zoom;y=(y-panY)/zoom;return DATA.find(n=>Math.hypot(n.x-x,n.y-y)<n.r+6)}
+function pos(e){const t=e.touches?e.touches[0]:e;return[t.clientX,t.clientY]}
+function down(e){const[x,y]=pos(e);dragN=pick(x,y);if(!dragN){panning=true;}px=x;py=y;cvs.classList.add('drag');if(e.touches)e.preventDefault();}
+function move(e){const[x,y]=pos(e);
+  if(dragN){dragN.x+=(x-px)/zoom;dragN.y+=(y-py)/zoom;}
+  else if(panning){panX+=x-px;panY+=y-py;}
+  else{hoverN=pick(x,y);
+    if(hoverN){card.querySelector('b').textContent=hoverN.id;
+      card.querySelector('p').textContent=hoverN.desc||hoverN.type;
+      card.style.left=Math.min(x+14,W-320)+'px';card.style.top=Math.min(y+14,H-90)+'px';card.style.opacity=1;}
+    else card.style.opacity=0;}
+  px=x;py=y;if(e.touches)e.preventDefault();}
+function up(){dragN=null;panning=false;cvs.classList.remove('drag')}
+cvs.addEventListener('mousedown',down);cvs.addEventListener('mousemove',move);
+addEventListener('mouseup',up);
+cvs.addEventListener('touchstart',down,{passive:false});
+cvs.addEventListener('touchmove',e=>{const[x,y]=pos(e);const n=pick(x,y);if(n&&!dragN&&!panning){hoverN=n;move(e);}else move(e)},{passive:false});
+addEventListener('touchend',()=>{up();setTimeout(()=>{hoverN=null;card.style.opacity=0},1800)});
+</script>

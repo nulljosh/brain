@@ -1,0 +1,144 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Memory Graph</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..500&display=swap" rel="stylesheet">
+<style>
+/* palette from heyitsmejosh.com tokens-sage.css, see design-tokens.css */
+:root{
+  --bg:#fdfdfc; --panel:#ffffff; --line:#ededed; --text:#111; --dim:rgba(0,0,0,.4);
+  --project:#5d7d5d; --feedback:#9a7a3f; --user:#4f6f8b; --reference:#96605f;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#111; --panel:#1a1a1a; --line:#2a2a2a; --text:#ededed; --dim:rgba(255,255,255,.45);
+  --project:#8fa98f; --feedback:#c2a06b; --user:#7d97ad; --reference:#b08585;
+}}
+:root[data-theme="light"]{
+  --bg:#fdfdfc; --panel:#ffffff; --line:#ededed; --text:#111; --dim:rgba(0,0,0,.4);
+  --project:#5d7d5d; --feedback:#9a7a3f; --user:#4f6f8b; --reference:#96605f;
+}
+:root[data-theme="dark"]{
+  --bg:#111; --panel:#1a1a1a; --line:#2a2a2a; --text:#ededed; --dim:rgba(255,255,255,.45);
+  --project:#8fa98f; --feedback:#c2a06b; --user:#7d97ad; --reference:#b08585;
+}
+html,body{height:100%;margin:0;overflow:hidden}
+body{background:var(--bg);color:var(--text);font:460 13px/1.7 'Inter',-apple-system,system-ui,sans-serif;letter-spacing:-.006em}
+#c{position:fixed;inset:0;cursor:grab}
+#c.drag{cursor:grabbing}
+header{position:fixed;top:0;left:0;right:0;display:flex;align-items:baseline;gap:16px;
+  padding:14px 18px;pointer-events:none}
+h1{font-size:13px;font-weight:600;margin:0;letter-spacing:.08em;text-transform:uppercase}
+#count{color:var(--dim)}
+#legend{position:fixed;bottom:14px;left:18px;display:flex;gap:14px;flex-wrap:wrap;pointer-events:none}
+.key{display:flex;align-items:center;gap:6px;color:var(--dim);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.key i{width:8px;height:8px;border-radius:50%;display:inline-block}
+#card{position:fixed;max-width:300px;background:var(--panel);border:1px solid var(--line);
+  padding:10px 12px;pointer-events:none;opacity:0;transition:opacity .12s}
+#card b{display:block;font-size:12px;margin-bottom:4px}
+#card p{margin:0;color:var(--dim);font-family:-apple-system,system-ui,sans-serif;font-size:12px}
+@media (prefers-reduced-motion: reduce){ /* handled in JS via matchMedia */ }
+</style>
+<canvas id="c"></canvas>
+<header><h1>Memory Graph</h1><span id="count"></span></header>
+<div id="legend">
+  <span class="key"><i style="background:var(--project)"></i>project</span>
+  <span class="key"><i style="background:var(--feedback)"></i>feedback</span>
+  <span class="key"><i style="background:var(--user)"></i>user</span>
+  <span class="key"><i style="background:var(--reference)"></i>reference</span>
+</div>
+<div id="card"><b></b><p></p></div>
+<script>
+ const DATA = [{"id": "appstore_screenshot_resolutions", "desc": "Required pixel resolutions for App Store Connect screenshots and which simulators produce them", "type": "project", "links": []}, {"id": "auto_deploy_after_fixes", "desc": "Deploy automatically after completing fixes\u2014don't re-ask", "type": "project", "links": ["feedback_push_confirmation"]}, {"id": "feedback_auto_push", "desc": "Auto-commit and push changes after they pass tests/build, without asking first", "type": "feedback", "links": ["feedback_push_confirmation", "feedback_auto_deploy"]}, {"id": "automate_not_manual", "desc": "Never make user copy/paste code when automation is possible", "type": "project", "links": []}, {"id": "feedback_close_simulator", "desc": "Always shut down and quit the iOS Simulator when done using it", "type": "feedback", "links": []}, {"id": "feedback-cloudflare-dns-direct-api", "desc": "Use Cloudflare's REST API directly with CLOUDFLARE_API_[redacted] DNS changes instead of asking the user to do it manually or relying on wra", "type": "feedback", "links": ["project_echo_dns_blocker"]}, {"id": "feedback-cross-platform-changes", "desc": "Always propagate feature changes across every platform target (web, iOS, macOS, watchOS) a project ships, not just the one edited first", "type": "feedback", "links": []}, {"id": "finish-last-steps", "desc": "Always complete the full task through to done, don't stop at \\\"mostly fixed\\\" and wait to be asked for the remaining steps", "type": "project", "links": []}, {"id": "feedback-icon-asc-stale-build", "desc": "When an ASC-visible app icon looks wrong, check the build date vs the icon-fix commit date before touching source assets again", "type": "feedback", "links": ["project_lingo_parlay_state", "icon_ship_pipeline"]}, {"id": "feedback-ignore-sourcekit", "desc": "Never mention SourceKit false positives \u2014 user finds it annoying and irrelevant", "type": "feedback", "links": []}, {"id": "feedback-journal-day-accuracy", "desc": "Always verify the actual calendar day before writing journal section headers; the system date tells you the date but not the day name", "type": "feedback", "links": []}, {"id": "journal-push-open", "desc": "Always push/deploy the journal after updating it, and open the link or summarize the new entry", "type": "project", "links": []}, {"id": "feedback-journal-url-slug", "desc": "Journal post URLs use the filename slug, not the title \u2014 don't guess from title when opening entries", "type": "feedback", "links": []}, {"id": "no-browser-automation-unless-confirmed", "desc": "Avoid claude-in-chrome browser automation \u2014 heavy [redacted] confirm with user first", "type": "project", "links": ["cli-first"]}, {"id": "no-chrome-automation", "desc": "Don't use claude-in-chrome browser automation \u2014 burns [redacted] manual steps instead", "type": "project", "links": ["usage-conscious"]}, {"id": "feedback-no-generic-ai-ui", "desc": "Never use decorative border stripes, purple accents, purple-tinted backgrounds, gradients, drop shadows, or emojis in UI work \u2014 user hates t", "type": "feedback", "links": ["project_quotable_state"]}, {"id": "feedback-push-confirmation", "desc": "Don't repeatedly ask for confirmation before pushing committed changes when the user has already signaled they want it pushed", "type": "feedback", "links": ["nulljosh-github-io-books", "feedback_auto_deploy"]}, {"id": "feedback-shared-supabase-auth-config", "desc": "Supabase Auth config (site_url, uri_allow_list) is project-wide, not per-app \u2014 don't overwrite it when multiple apps share the spark project", "type": "feedback", "links": ["project_supabase_shared_spark"]}, {"id": "feedback-swiftui-compiler", "desc": "SwiftUI compiler type-checker timeouts \u2014 how to avoid them", "type": "feedback", "links": []}, {"id": "30s-design-system", "desc": "Portfolio theme \u2014 30s newsprint SUPERSEDED by sage.me minimal restyle 2026-07-06", "type": "project", "links": ["vibe-tokens-sync"]}, {"id": "project-app-renames", "desc": "Rename ASC apps \\\"Brief by Josh\\\" and \\\"Journal by Josh\\\" to better names this week", "type": "project", "links": []}, {"id": "asc-workflows-rollout", "desc": "All 8 app repos have .asc/workflow.json \u2014 releases are one asc workflow run command", "type": "project", "links": []}, {"id": "project-bank", "desc": "Neobank sandbox prototype (Wealthsimple-style) at ~/Documents/Code/bank", "type": "project", "links": ["shared-supabase-backend"]}, {"id": "project-bcgd-state", "desc": "BCGD monorepo state \u2014 web live, iOS companion app verified in sim 2026-07-10", "type": "project", "links": []}, {"id": "books-state", "desc": "Book summaries pipeline status \u2014 ML for Dummies complete, pc12/calc scans pending", "type": "project", "links": ["summarize-books skill"]}, {"id": "project_brief_multiuser", "desc": "Brief litigation app \u2014 web multi-user signup shipped, native still single-user", "type": "project", "links": ["project_supabase_shared_spark"]}, {"id": "project-brief-ship", "desc": "Casewright (brief iOS) 1.0.1 SUBMITTED for review 2026-07-06", "type": "project", "links": []}, {"id": "project_codebase_location", "desc": "Where the user's actual codebase/projects live on disk", "type": "project", "links": []}, {"id": "echo-state", "desc": "Echo iOS 1.3.3 rejected 2.1b (dead paywall btn), fixed b9 resubmitting 2026-07-10; Mac 1.3.3 uploaded", "type": "project", "links": []}, {"id": "project-epiphany-asc-cli", "desc": "App Store Connect CLI (asc) is installed and authenticated for Epiphany", "type": "project", "links": ["project_epiphany_ios_appstore"]}, {"id": "epiphany-flights-opensky", "desc": "Epiphany flights \u2014 OpenSky blocks BOTH Vercel and Cloudflare egress (relay 522'd); fix shipped 2026-06-11 = adsb.lol fallback in flights.js;", "type": "project", "links": []}, {"id": "project-epiphany-ios-appstore", "desc": "Epiphany iOS \u2014 v2.6.0 live in App Store (id[phone]), SnapTrade phantom holdings FIXED 2026-07-02 (account dedupe); Josh to eyeball force-syn", "type": "project", "links": ["project_epiphany_flights_opensky"]}, {"id": "epiphany_ios_june26_fixes", "desc": "iOS UI fixes and remaining issues from 2026-06-13 batch", "type": "project", "links": []}, {"id": "project-epiphany-ios-portfolio-fix", "desc": "iOS portfolio auto-refresh + $140 balance discrepancy (2026-06-16)", "type": "project", "links": []}, {"id": "epiphany-ios-refresh-fix", "desc": "iOS pull-to-refresh network error fix deployed", "type": "project", "links": []}, {"id": "epiphany-state", "desc": "Epiphany release status", "type": "project", "links": []}, {"id": "project_epiphany_venue_reviews", "desc": "Epiphany iOS venue map cards \u2014 Yelp key needed to add reviews/photos/description (TODO 2026-07-08)", "type": "project", "links": ["project_epiphany_ios_appstore", "project_epiphany_state"]}, {"id": "project-dose-state", "desc": "Healstack (formerly Dose) \u2014 App Store id[phone], v2.3.3 build valid on ASC", "type": "project", "links": []}, {"id": "icon-ship-pipeline", "desc": "2026-07-02 icon fix + ship batch \u2014 status of all app uploads", "type": "project", "links": []}, {"id": "icon-upload-pipeline", "desc": "asc xcode archive/export/upload works, but ASC build validation failures are invisible to the CLI \u2014 check email, not asc builds list", "type": "project", "links": ["project_icon_ship_pipeline"]}, {"id": "project-journal-ios", "desc": "Inkpress iOS (ASC[phone]) \u2014 1.0.2 WAITING_FOR_REVIEW as of 2026-07-11", "type": "project", "links": []}, {"id": "journal-separate-repo", "desc": "Journal is now a separate git repo at ~/Code/journal with own Vercel project", "type": "project", "links": []}, {"id": "project-lingo-name", "desc": "LingoAce is the App Store name for the Lingo app \u2014 Lingo, LingoPlay, LingoLeap, LingoQuest, LingoStar all taken", "type": "project", "links": []}, {"id": "project-lexly-state", "desc": "Lexly ship state \u2014 uploaded build broken, fix committed, new build needed", "type": "project", "links": []}, {"id": "project-lingobox-submission", "desc": "LingoBox iOS/macOS App Store submission status and remaining blockers", "type": "project", "links": []}, {"id": "project_nimble_gemma", "desc": "Nimble Gemma answer engine LIVE 2026-07-10 (worker deployed, key stored); same key powers Spark AI", "type": "project", "links": ["get-api-key"]}, {"id": "nyc-no-autoplay", "desc": "nyc game must be fully player-controlled \u2014 autoplay/directive engine deleted 2026-07-02, never reintroduce", "type": "project", "links": []}, {"id": "nyc-web-port", "desc": "nyc game has a separate JS web port at nyc.heyitsmejosh.com (Vercel project nyc-web), source now in nyc/web/", "type": "project", "links": ["nyc-no-autoplay"]}, {"id": "portfolio-ios-app", "desc": "Portfolio now has its own iOS app (nulljosh.github.io/ios), separate from Inkpress", "type": "project", "links": ["portfolio-repo"]}, {"id": "\"\"", "desc": "", "type": "project", "links": ["project_codebase_location"]}, {"id": "resume-integration", "desc": "Resume lives inline in portfolio index.html, not as a separate file", "type": "project", "links": ["portfolio-repo"]}, {"id": "project-roadmap-ship", "desc": "Ship blockers as of 2026-06-29 night \u2014 Talli/NYC/Parlay Mac pushed; Spark Mac + Dose iOS still broken", "type": "project", "links": []}, {"id": "project-root-state", "desc": "root/etyma \u2014 dictionary + etymology app; Lookup v1 live 2026-07-10, repo archived into labs", "type": "project", "links": []}, {"id": "school_folder_structure", "desc": "School folder structure, courses, and custom quiz/study commands", "type": "project", "links": []}, {"id": "project_security_sweep_cadence", "desc": "Multi-project security-sweep skill exists; run every few days manually, no persistent automation", "type": "project", "links": ["project_codebase_location"]}, {"id": "project-shannon-pentest", "desc": "Shannon (Keygraph AI pentester) cloned and wired into a skill/slash-command; Docker not installed on this Mac yet", "type": "project", "links": ["project_security_sweep_cadence"]}, {"id": "project-ship-queue-20260707", "desc": "Talli/Echo/Inkpress TestFlight ship attempt 2026-07-07, mid-flight state and next steps", "type": "project", "links": []}, {"id": "project_social_signin_rollout", "desc": "Social sign-in providers rollout across apps \u2014 Epiphany first (X done, Facebook next)", "type": "project", "links": ["project_supabase_shared_spark"]}, {"id": "spark-fn-cap", "desc": "Spark Vercel Hobby caps at 12 serverless fns; auth routes consolidated into api/auth.js dispatcher", "type": "project", "links": ["spark-ship-state"]}, {"id": "spark-ship-state", "desc": "Spark current ship state \u2014 v2.1.0 live, App Store submission in progress", "type": "project", "links": ["user-usage-conscious"]}, {"id": "project-supabase-shared-spark", "desc": "Supabase free-tier project limit (2) is maxed out; reuse the \\\"spark\\\" project as shared backend for new small projects until upgrading to P", "type": "project", "links": []}, {"id": "talli-status", "desc": "Talli current version and ship status", "type": "project", "links": []}, {"id": "testflight-internal-groups", "desc": "TestFlight wiring is EMAIL-invite based, not ASC-user internal; stale/dup invites broke most apps \u2014 fix pending", "type": "project", "links": []}, {"id": "vibe-tokens-sync", "desc": "spark/wiretext/grapher import live portfolio [redacted] hardcode palette locally", "type": "project", "links": []}, {"id": "reference_asc_icon_fix", "desc": "Why App Store Connect apps show no icon / blank placeholder, and the /icon skill that fixes it", "type": "reference", "links": ["project_spark_ship_state"]}, {"id": "reference_obsidian_vault", "desc": "Obsidian vault path (moved to Obsidian iCloud container 2026-07-10, symlink at old path)", "type": "reference", "links": []}, {"id": "codebase_location", "desc": "Primary codebase location", "type": "project", "links": []}, {"id": "user-school-uvic", "desc": "Joshua is going to UVIC for computer science, not Capilano paralegal", "type": "user", "links": []}, {"id": "user-usage-conscious", "desc": "Joshua is on Claude Pro and watches usage closely \u2014 work lean", "type": "user", "links": []}];
+const cvs=document.getElementById('c'),ctx=cvs.getContext('2d');
+const card=document.getElementById('card');
+let W,H,DPR=Math.min(devicePixelRatio||1,2);
+function size(){W=innerWidth;H=innerHeight;cvs.width=W*DPR;cvs.height=H*DPR;cvs.style.width=W+'px';cvs.style.height=H+'px';ctx.setTransform(DPR,0,0,DPR,0,0)}
+size();addEventListener('resize',size);
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const byId={};DATA.forEach(n=>byId[n.id]=n);
+// resolve links loosely: exact id or underscore/hyphen-normalized
+const norm=s=>s.toLowerCase().replace(/-/g,'_');
+const byNorm={};DATA.forEach(n=>byNorm[norm(n.id)]=n);
+const edges=[];
+DATA.forEach(n=>n.links.forEach(l=>{const t=byNorm[norm(l)];if(t&&t!==n)edges.push([n,t]);}));
+const deg={};edges.forEach(([a,b])=>{deg[a.id]=(deg[a.id]||0)+1;deg[b.id]=(deg[b.id]||0)+1;});
+document.getElementById('count').textContent=DATA.length+' memories · '+edges.length+' links';
+
+const css=k=>getComputedStyle(document.documentElement).getPropertyValue('--'+k).trim();
+// init: everything at center, bloom outward
+DATA.forEach((n,i)=>{const a=i/DATA.length*Math.PI*2;
+  n.x=W/2+Math.cos(a)*8;n.y=H/2+Math.sin(a)*8;n.vx=0;n.vy=0;
+  n.r=4+Math.min(6,(deg[n.id]||0)*1.6);
+  n.born=reduced?0:i*18; // staggered fade-in ms
+});
+let start=performance.now(),dragN=null,hoverN=null,px=0,py=0,panX=0,panY=0,panning=false,zoom=1;
+cvs.addEventListener('wheel',e=>{e.preventDefault();
+  const f=Math.exp(-e.deltaY*.0015),z=Math.min(4,Math.max(.25,zoom*f)),k=z/zoom;
+  panX=e.clientX-(e.clientX-panX)*k;panY=e.clientY-(e.clientY-panY)*k;zoom=z;
+},{passive:false});
+
+function tick(){
+  // forces: repulsion, spring on edges, mild centering
+  for(let i=0;i<DATA.length;i++)for(let j=i+1;j<DATA.length;j++){
+    const a=DATA[i],b=DATA[j];let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy+.01,d=Math.sqrt(d2);
+    const f=Math.min(1200/d2,4);dx/=d;dy/=d;
+    a.vx+=dx*f;a.vy+=dy*f;b.vx-=dx*f;b.vy-=dy*f;
+  }
+  edges.forEach(([a,b])=>{let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1;
+    const f=(d-90)*.004;dx/=d;dy/=d;
+    a.vx+=dx*f*30;a.vy+=dy*f*30;b.vx-=dx*f*30;b.vy-=dy*f*30;});
+  DATA.forEach(n=>{
+    n.vx+=(W/2-n.x)*.0012;n.vy+=(H/2-n.y)*.0012;
+    n.vx*=.86;n.vy*=.86;
+    if(n!==dragN){n.x+=n.vx;n.y+=n.vy;}
+  });
+}
+function draw(now){
+  const t=now-start;
+  ctx.clearRect(0,0,W,H);
+  ctx.save();ctx.translate(panX,panY);ctx.scale(zoom,zoom);
+  ctx.strokeStyle=css('line');ctx.lineWidth=1;
+  edges.forEach(([a,b])=>{
+    const al=reduced?1:Math.min(1,Math.max(0,(t-400)/600));
+    if(al<=0)return;ctx.globalAlpha=al*(hoverN&&(a===hoverN||b===hoverN)?1:.55);
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+  });
+  DATA.forEach(n=>{
+    const al=reduced?1:Math.min(1,Math.max(0,(t-n.born)/350));
+    if(al<=0)return;
+    const pop=reduced?1:1+.6*Math.max(0,1-(t-n.born)/350); // slight overshoot shrink
+    ctx.globalAlpha=al;
+    ctx.fillStyle=css(n.type);
+    ctx.beginPath();ctx.arc(n.x,n.y,n.r*pop,0,7);ctx.fill();
+    if(n===hoverN){ctx.strokeStyle=css('text');ctx.lineWidth=1.5;ctx.stroke();}
+    if(n.r>6||n===hoverN){
+      ctx.fillStyle=css(n===hoverN?'text':'dim');ctx.font='10px ui-monospace,Menlo,monospace';
+      ctx.textAlign='center';ctx.fillText(n.id.replace(/^(project|feedback|user|reference)[_-]/,''),n.x,n.y-n.r-6);
+    }
+  });
+  ctx.restore();ctx.globalAlpha=1;
+}
+function loop(now){tick();draw(now);requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+
+function pick(x,y){x=(x-panX)/zoom;y=(y-panY)/zoom;return DATA.find(n=>Math.hypot(n.x-x,n.y-y)<n.r+6)}
+function pos(e){const t=e.touches?e.touches[0]:e;return[t.clientX,t.clientY]}
+function down(e){const[x,y]=pos(e);dragN=pick(x,y);if(!dragN){panning=true;}px=x;py=y;cvs.classList.add('drag');if(e.touches)e.preventDefault();}
+function move(e){const[x,y]=pos(e);
+  if(dragN){dragN.x+=(x-px)/zoom;dragN.y+=(y-py)/zoom;}
+  else if(panning){panX+=x-px;panY+=y-py;}
+  else{hoverN=pick(x,y);
+    if(hoverN){card.querySelector('b').textContent=hoverN.id;
+      card.querySelector('p').textContent=hoverN.desc||hoverN.type;
+      card.style.left=Math.min(x+14,W-320)+'px';card.style.top=Math.min(y+14,H-90)+'px';card.style.opacity=1;}
+    else card.style.opacity=0;}
+  px=x;py=y;if(e.touches)e.preventDefault();}
+function up(){dragN=null;panning=false;cvs.classList.remove('drag')}
+cvs.addEventListener('mousedown',down);cvs.addEventListener('mousemove',move);
+addEventListener('mouseup',up);
+cvs.addEventListener('touchstart',down,{passive:false});
+cvs.addEventListener('touchmove',e=>{const[x,y]=pos(e);const n=pick(x,y);if(n&&!dragN&&!panning){hoverN=n;move(e);}else move(e)},{passive:false});
+addEventListener('touchend',()=>{up();setTimeout(()=>{hoverN=null;card.style.opacity=0},1800)});
+</script>

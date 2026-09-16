@@ -1,0 +1,32 @@
+/* sage.me-derived tokens — extracted 2026-07-06 via /vibe */
+/* fonts loaded via <link> in head (non-blocking), not @import */
+
+:root{
+  --color-bg:#fdfdfc;
+  --color-text:#111;
+  --color-secondary:rgba(0,0,0,0.4);
+  --color-soft:rgba(0,0,0,0.5);
+  --color-hairline:#f2f2f2;
+  --color-hairline-strong:#ededed;
+  --color-underline:#d9d9d9;
+  --color-underline-hover:#666;
+  --color-code-bg:#f8f8f8;
+  --column-width:36.375rem;
+  --font-body:'Inter',-apple-system,system-ui,sans-serif;
+  --font-serif:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Helvetica,Arial,sans-serif;
+  --font-code:ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,monospace;
+}
+
+@media (prefers-color-scheme: dark){
+  :root{
+    --color-bg:#111;
+    --color-text:#ededed;
+    --color-secondary:rgba(255,255,255,0.45);
+    --color-soft:rgba(255,255,255,0.55);
+    --color-hairline:#1f1f1f;
+    --color-hairline-strong:#2a2a2a;
+    --color-underline:#3a3a3a;
+    --color-underline-hover:#aaa;
+    --color-code-bg:#1a1a1a;
+  }
+}

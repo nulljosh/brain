@@ -96,4 +96,5 @@ export interface Env {
   AI: any;
   VEC: any;
   TOKEN: string;
+  ASSETS: Fetcher;
 }

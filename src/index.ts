@@ -38,6 +38,13 @@ async function handle(req: Request, env: Env): Promise<Response> {
     return new Response(PAGE, { headers: { "content-type": "text/html; charset=utf-8" } });
   }
 
+  // The memory graph is a static, pre-scrubbed render (see public/graph/build.py). Public by design.
+  if (path === "/graph" || path.startsWith("/graph/")) {
+    const assetUrl = new URL(req.url);
+    assetUrl.pathname = path === "/graph" ? "/graph/index.html" : path;
+    return env.ASSETS.fetch(new Request(assetUrl, req));
+  }
+
   // These are Joshua's private notes, so every surface is gated — including the discovery
   // route, which would otherwise advertise the index to anyone who found the subdomain.
   if (req.headers.get("authorization") !== `Bearer ${env.TOKEN}`) {

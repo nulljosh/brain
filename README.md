@@ -23,6 +23,7 @@ Live: **https://brain.heyitsmejosh.com**. Every route needs a bearer token. Thes
 | `GET /api/ask?q=` | a written answer with sources. Slower, a model writes it |
 | `POST /api/ingest` | re-index; body `{ chunks: [{ id, text, source }] }` |
 | `POST /mcp` | Model Context Protocol, same two tools |
+| `GET /graph` | public, pre-scrubbed visual graph of memory. Static, `public/graph/build.py` regenerates it |
 
 ## Use
 ```bash
