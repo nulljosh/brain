@@ -9,6 +9,8 @@ A Cloudflare Worker, Vectorize and Workers AI. No model is trained. The notes st
 
 Live: **https://brain.heyitsmejosh.com**. Every route needs a bearer token. These are private notes.
 
+<img src="progress.svg" width="460">
+
 ## Layout
 - `src/tools.ts`: `search_notes`, `ask_notes`, `ingest`. The only file that knows how retrieval works. REST and MCP both call it, so they can't drift apart.
 - `src/mcp.ts`: stateless JSON-RPC MCP transport.
