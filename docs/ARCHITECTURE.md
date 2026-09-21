@@ -1,6 +1,8 @@
 # Architecture
 
-RAG over personal notes. A Cloudflare Worker that indexes Obsidian wiki entries and project documentation (roadmaps, CLAUDEs, READMEs), embeds them with Workers AI, stores in Vectorize, and answers questions by searching the index and optionally synthesizing an answer. Bearer-token-gated at `brain.heyitsmejosh.com`, with both REST and MCP interfaces. No UI; the only consumers are Claude Code sessions and direct API calls.
+Brain answers questions about your own notes. It reads everything you have written across your wiki and your projects, including roadmaps and readme files, and keeps a searchable copy. Ask it something in plain English and it finds the passages that actually relate to the question by meaning rather than by matching words, then either hands them back or writes the answer for you.
+
+It is one small program on Cloudflare, locked behind a key, at `brain.heyitsmejosh.com`. There is no website to visit. It exists to be asked things by Claude Code and by other software.
 
 ## How it runs
 
