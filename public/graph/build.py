@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Rebuilds index.html from ~/.claude memory files. Run after memories change.
-# Public deploy (brain.heyitsmejosh.com): sensitive memories are dropped and
+# Public deploy (brain.jaybulb.com): sensitive memories are dropped and
 # PII patterns scrubbed before anything reaches the generated site.
 import os, re, json
 MEM = os.path.expanduser('~/.claude/projects/-Users-joshua/memory')

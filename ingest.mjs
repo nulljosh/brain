@@ -9,7 +9,7 @@ import { createHash } from "node:crypto";
 const WIKI = join(homedir(), "Library/Mobile Documents/iCloud~md~obsidian/Documents/Code");
 const CODE = join(homedir(), "Documents/Code");
 const ROOTS = [WIKI, CODE];
-const URL_BASE = process.env.BRAIN_URL ?? "https://brain.heyitsmejosh.com";
+const URL_BASE = process.env.BRAIN_URL ?? "https://brain.jaybulb.com";
 const MAX = 1500; // chars; bge-base handles ~512 tokens
 
 function walk(dir, out = []) {
