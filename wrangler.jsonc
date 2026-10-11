@@ -3,7 +3,7 @@
   "name": "brain",
   "main": "src/index.ts",
   "workers_dev": false,
-  "routes": [{ "pattern": "brain.heyitsmejosh.com", "custom_domain": true }],
+  "routes": [{ "pattern": "brain.heyitsmejosh.com", "custom_domain": true }, { "pattern": "brain.jaybulb.com", "custom_domain": true }],
   "assets": { "directory": "public", "binding": "ASSETS", "run_worker_first": true },
   "compatibility_date": "2026-08-31",
   "ai": { "binding": "AI" },
