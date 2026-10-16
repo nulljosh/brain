@@ -7,7 +7,7 @@ My notes, searchable. Ask them a question and get an answer with sources.
 
 A Cloudflare Worker, Vectorize and Workers AI. No model is trained. The notes stay the truth and the model only reads them.
 
-Live: **https://brain.heyitsmejosh.com**. Every route needs a bearer token. These are private notes.
+Live: **https://brain.jaybulb.com**. Every route needs a bearer token. These are private notes.
 
 <img src="progress.svg" width="460">
 
@@ -34,12 +34,12 @@ Live: **https://brain.heyitsmejosh.com**. Every route needs a bearer token. Thes
 set -a && source .env.local && set +a
 node ingest.mjs                                    # re-index after notes change
 curl -s -H "authorization: Bearer $BRAIN_TOKEN" \
-  "https://brain.heyitsmejosh.com/api/search?q=what+is+blocked+on+me"
+  "https://brain.jaybulb.com/api/search?q=what+is+blocked+on+me"
 ```
 
 ## As an MCP server
 ```bash
-claude mcp add --transport http brain https://brain.heyitsmejosh.com/mcp \
+claude mcp add --transport http brain https://brain.jaybulb.com/mcp \
   --header "authorization: Bearer $BRAIN_TOKEN"
 ```
 
