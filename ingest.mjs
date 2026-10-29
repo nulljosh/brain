@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Walks the Obsidian wiki + every roadmap.md, chunks, POSTs to /ingest.
 // usage: BRAIN_TOKEN=... node ingest.mjs [--dry]
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, lstatSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { createHash } from "node:crypto";
@@ -12,11 +12,14 @@ const ROOTS = [WIKI, CODE];
 const URL_BASE = process.env.BRAIN_URL ?? "https://brain.jaybulb.com";
 const MAX = 1500; // chars; bge-base handles ~512 tokens
 
+const SKIP = new Set(["node_modules", "_attic", "_external", "build", "dist", "DerivedData", "Pods", "target", "Intermediate", "Saved", "Binaries"]);
+
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
-    if (name.startsWith(".") || name === "node_modules") continue;
+    if (name.startsWith(".") || SKIP.has(name)) continue;
     const p = join(dir, name);
-    const s = statSync(p);
+    const s = lstatSync(p); // lstat: rename symlinks (surf, bookrank) and the LaCie would double or hang the walk
+    if (s.isSymbolicLink()) continue;
     if (s.isDirectory()) walk(p, out);
     else if (name.endsWith(".md")) out.push(p);
   }
@@ -64,19 +67,42 @@ function collect() {
   return chunks;
 }
 
+// Last run's chunk ids. An edited paragraph gets a new id, so without this the old
+// passage would stay in the index forever and every run would re-embed everything.
+const MANIFEST = new URL("./.ingest-manifest.json", import.meta.url);
+
+async function post(body) {
+  const r = await fetch(`${URL_BASE}/ingest`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${process.env.BRAIN_TOKEN}`, "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const text = await r.text();
+  if (!r.ok) throw new Error(`${r.status} ${text}`);
+  return text;
+}
+
 async function main() {
   const chunks = collect();
-  console.log(`${chunks.length} chunks`);
-  if (process.argv.includes("--dry")) return console.log(chunks.slice(0, 2));
-  for (let i = 0; i < chunks.length; i += 50) {
-    const batch = chunks.slice(i, i + 50);
-    const r = await fetch(`${URL_BASE}/ingest`, {
-      method: "POST",
-      headers: { authorization: `Bearer ${process.env.BRAIN_TOKEN}`, "content-type": "application/json" },
-      body: JSON.stringify({ chunks: batch }),
-    });
-    console.log(i, r.status, await r.text());
-    if (!r.ok) process.exit(1);
+  const prev = new Set(existsSync(MANIFEST) ? JSON.parse(readFileSync(MANIFEST, "utf8")) : []);
+  const now = new Set(chunks.map((c) => c.id));
+  const fresh = chunks.filter((c) => !prev.has(c.id));
+  const gone = [...prev].filter((id) => !now.has(id));
+  console.log(`${chunks.length} chunks: ${fresh.length} new, ${gone.length} gone`);
+  if (process.argv.includes("--dry")) return;
+  // save after every batch so a run cut off by the Workers AI daily quota resumes, not restarts
+  const save = () => writeFileSync(MANIFEST, JSON.stringify([...prev]));
+  for (let i = 0; i < fresh.length; i += 50) {
+    const batch = fresh.slice(i, i + 50);
+    console.log(i, await post({ chunks: batch }));
+    batch.forEach((c) => prev.add(c.id));
+    save();
+  }
+  for (let i = 0; i < gone.length; i += 100) {
+    const batch = gone.slice(i, i + 100);
+    console.log("del", i, await post({ delete: batch }));
+    batch.forEach((id) => prev.delete(id));
+    save();
   }
 }
 

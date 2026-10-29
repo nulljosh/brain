@@ -8,7 +8,7 @@ import { PAGE } from "./page";
 const ENDPOINTS = {
   "GET  /api/search?q=&limit=": "Matching passages from the notes, verbatim, with sources.",
   "GET  /api/ask?q=": "A written answer with sources. Slower — a model writes it.",
-  "POST /api/ingest": "Re-index. Body: { chunks: [{ id, text, source }] }.",
+  "POST /api/ingest": "Re-index. Body: { chunks: [{ id, text, source }], delete?: [id] }.",
   "POST /mcp": "Model Context Protocol, JSON-RPC. Same tools.",
 };
 
@@ -56,9 +56,9 @@ async function handle(req: Request, env: Env): Promise<Response> {
 
   if (path === "/api/ingest" || path === "/ingest") {
     if (req.method !== "POST") return json({ error: "POST to ingest." }, 405);
-    const body = (await req.json()) as { chunks?: Chunk[] };
+    const body = (await req.json()) as { chunks?: Chunk[]; delete?: string[] };
     try {
-      return json(await ingest(env, body.chunks ?? []));
+      return json(await ingest(env, body.chunks ?? [], body.delete ?? []));
     } catch (err) {
       if (err instanceof ToolError) return json({ error: err.message }, 400);
       throw err;

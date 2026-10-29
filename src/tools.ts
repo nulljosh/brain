@@ -77,7 +77,11 @@ export async function callTool(env: Env, name: string, args: Record<string, any>
   return null; // unknown tool; the callers turn this into their own shape of error
 }
 
-export async function ingest(env: Env, chunks: Chunk[]) {
+export async function ingest(env: Env, chunks: Chunk[], remove: string[] = []) {
+  if (remove.length) {
+    await env.VEC.deleteByIds(remove);
+    if (!chunks.length) return { ok: true, deleted: remove.length };
+  }
   if (!chunks.length) throw new ToolError("no chunks");
   const { data } = await env.AI.run(EMBED, { text: chunks.map((c) => c.text) });
   await env.VEC.upsert(
