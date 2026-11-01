@@ -1,3 +1,4 @@
+<img src="icon.svg" width="80">
 
 ![version](https://img.shields.io/badge/version-v1.0.0-blue) ![license](https://img.shields.io/badge/license-MIT-green)
 
